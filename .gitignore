@@ -1,0 +1,61 @@
+build/bin
+node_modules
+frontend/dist
+
+sounds/
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.wav.gz
+*.mp3.gz
+*.ogg.gz
+*.flac.gz
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+
+# Code signing private key (never commit)
+build/windows/codesign.pfx
+*.pfx
+
+# Build artefacts
+*.syso
+resource.syso
+rsrc_windows_*.syso
+
+# Go / toolchain caches
+*.cover
+*.coverage
+coverage.*
+coverage.html
+profile.cov
+*.prof
+*.pprof
+go.work
+go.work.sum
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Local-only notes (not for git)
+local/
+
+graphify-out/
+

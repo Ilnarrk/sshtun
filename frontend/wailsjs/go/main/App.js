@@ -10,8 +10,16 @@ export function ClearLog() {
   return window['go']['main']['App']['ClearLog']();
 }
 
+export function ClearProfilePassword(arg1) {
+  return window['go']['main']['App']['ClearProfilePassword'](arg1);
+}
+
 export function GetBootstrap() {
   return window['go']['main']['App']['GetBootstrap']();
+}
+
+export function HasProfilePassword(arg1) {
+  return window['go']['main']['App']['HasProfilePassword'](arg1);
 }
 
 export function OpenInteractiveTerminal(arg1) {
@@ -22,8 +30,16 @@ export function SaveWorkspace(arg1) {
   return window['go']['main']['App']['SaveWorkspace'](arg1);
 }
 
+export function SetProfilePassword(arg1, arg2) {
+  return window['go']['main']['App']['SetProfilePassword'](arg1, arg2);
+}
+
 export function StartTunnel(arg1) {
   return window['go']['main']['App']['StartTunnel'](arg1);
+}
+
+export function StartTunnelWithPassword(arg1, arg2) {
+  return window['go']['main']['App']['StartTunnelWithPassword'](arg1, arg2);
 }
 
 export function StopTunnel() {

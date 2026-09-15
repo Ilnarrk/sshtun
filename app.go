@@ -10,7 +10,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"sshtun/internal/config"
+	"sshtun/internal/credentials"
 	"sshtun/internal/model"
+	"sshtun/internal/tray"
 	"sshtun/internal/tunnel"
 )
 
@@ -18,6 +20,8 @@ type App struct {
 	ctx       context.Context
 	store     *config.Store
 	tunnel    *tunnel.Manager
+	tray      *tray.Icon
+	exiting   bool
 	saveMu    sync.Mutex
 	pending   *model.Workspace
 	saveTimer *time.Timer
@@ -36,9 +40,23 @@ func (a *App) startup(ctx context.Context) {
 	a.tunnel.SetEmitter(func(name string, payload any) {
 		runtime.EventsEmit(ctx, name, payload)
 	})
+	a.tray = tray.New(func() {
+		runtime.WindowShow(ctx)
+		runtime.WindowUnminimise(ctx)
+	}, func() {
+		a.exiting = true
+		_ = a.tunnel.Stop()
+		if a.tray != nil {
+			a.tray.Hide()
+		}
+		runtime.Quit(ctx)
+	})
 }
 
 func (a *App) shutdown(context.Context) {
+	if a.tray != nil {
+		a.tray.Hide()
+	}
 	_ = a.flushWorkspace()
 	_ = a.tunnel.Stop()
 }
@@ -52,22 +70,22 @@ func (a *App) beforeClose(ctx context.Context) bool {
 		})
 		return true
 	}
-	if !a.tunnel.IsActive() {
+	if a.exiting || !a.tunnel.IsActive() {
 		return false
 	}
-	choice, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-		Type:          runtime.QuestionDialog,
-		Title:         "SSH Tunnel Manager",
-		Message:       "Туннель активен. Остановить его и закрыть приложение?",
-		Buttons:       []string{"Остановить и выйти", "Отмена"},
-		DefaultButton: "Остановить и выйти",
-		CancelButton:  "Отмена",
-	})
-	if err != nil || choice != "Остановить и выйти" {
-		return true
+	runtime.WindowHide(ctx)
+	if a.tray != nil {
+		_ = a.tray.Show("SSH Tunnel Manager")
 	}
-	_ = a.tunnel.Stop()
-	return false
+	return true
+}
+
+func (a *App) showWindow() {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
 }
 
 func (a *App) GetBootstrap() (model.Bootstrap, error) {
@@ -117,7 +135,47 @@ func (a *App) flushWorkspace() error {
 }
 
 func (a *App) StartTunnel(profile model.Profile) error {
-	return a.tunnel.Start(profile)
+	return a.startTunnel(profile, "")
+}
+
+func (a *App) StartTunnelWithPassword(profile model.Profile, password string) error {
+	return a.startTunnel(profile, password)
+}
+
+func (a *App) startTunnel(profile model.Profile, sessionPassword string) error {
+	profile = model.NormalizeWorkspace(model.Workspace{Profiles: []model.Profile{profile}}).Profiles[0]
+	authMethod := model.NormalizeAuthMethod(profile.AuthMethod)
+	if authMethod == "password" {
+		if strings.TrimSpace(sessionPassword) == "" && !profile.PromptPassword {
+			stored, err := credentials.GetPassword(profile.ID)
+			if err != nil {
+				return errors.New("укажите пароль или включите запрос при подключении")
+			}
+			sessionPassword = stored
+		}
+		if strings.TrimSpace(sessionPassword) == "" {
+			return errors.New("требуется пароль")
+		}
+	}
+	return a.tunnel.Start(profile, sessionPassword)
+}
+
+func (a *App) SetProfilePassword(profileID, password string) error {
+	if strings.TrimSpace(profileID) == "" {
+		return errors.New("не указан профиль")
+	}
+	if strings.TrimSpace(password) == "" {
+		return credentials.DeletePassword(profileID)
+	}
+	return credentials.SetPassword(profileID, password)
+}
+
+func (a *App) ClearProfilePassword(profileID string) error {
+	return credentials.DeletePassword(profileID)
+}
+
+func (a *App) HasProfilePassword(profileID string) bool {
+	return credentials.HasPassword(profileID)
 }
 
 func (a *App) StopTunnel() error {

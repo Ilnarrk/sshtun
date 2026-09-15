@@ -50,11 +50,11 @@ func TestManagerConnectsAndStops(t *testing.T) {
 	profile := model.DefaultProfile()
 	profile.Host = "example.org"
 	profile.SocksPort = strconv.Itoa(port)
-	if err := manager.Start(profile); err != nil {
+	if err := manager.Start(profile, ""); err != nil {
 		t.Fatal(err)
 	}
 	waitForPhase(t, manager, "connected")
-	if err := manager.Start(profile); err == nil {
+	if err := manager.Start(profile, ""); err == nil {
 		t.Fatal("expected second start to be rejected")
 	}
 	if err := manager.Stop(); err != nil {
@@ -69,7 +69,7 @@ func TestManagerKeepsIdleWhenPortIsOccupied(t *testing.T) {
 	manager.checkPort = func(int) error { return errors.New("busy") }
 	profile := model.DefaultProfile()
 	profile.Host = "example.org"
-	if err := manager.Start(profile); err == nil {
+	if err := manager.Start(profile, ""); err == nil {
 		t.Fatal("expected occupied port error")
 	}
 	if manager.State().Phase != "idle" {

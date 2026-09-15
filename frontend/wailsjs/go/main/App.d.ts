@@ -6,12 +6,20 @@ export function ChoosePrivateKey():Promise<string>;
 
 export function ClearLog():Promise<void>;
 
+export function ClearProfilePassword(arg1:string):Promise<void>;
+
 export function GetBootstrap():Promise<model.Bootstrap>;
+
+export function HasProfilePassword(arg1:string):Promise<boolean>;
 
 export function OpenInteractiveTerminal(arg1:model.Profile):Promise<void>;
 
 export function SaveWorkspace(arg1:model.Workspace):Promise<void>;
 
+export function SetProfilePassword(arg1:string,arg2:string):Promise<void>;
+
 export function StartTunnel(arg1:model.Profile):Promise<void>;
+
+export function StartTunnelWithPassword(arg1:model.Profile,arg2:string):Promise<void>;
 
 export function StopTunnel():Promise<void>;

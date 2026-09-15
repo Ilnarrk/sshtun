@@ -4,10 +4,13 @@ type WailsApp = {
   GetBootstrap(): Promise<Bootstrap>;
   SaveWorkspace(workspace: Workspace): Promise<void>;
   StartTunnel(profile: Profile): Promise<void>;
+  StartTunnelWithPassword(profile: Profile, password: string): Promise<void>;
   StopTunnel(): Promise<void>;
   ClearLog(): Promise<void>;
   ChoosePrivateKey(): Promise<string>;
-  OpenInteractiveTerminal(profile: Profile): Promise<void>;
+  SetProfilePassword(profileID: string, password: string): Promise<void>;
+  ClearProfilePassword(profileID: string): Promise<void>;
+  HasProfilePassword(profileID: string): Promise<boolean>;
 };
 
 type WailsRuntime = {

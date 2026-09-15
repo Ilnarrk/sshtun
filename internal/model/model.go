@@ -29,6 +29,8 @@ type Profile struct {
 	Port             string        `json:"port"`
 	SocksPort        string        `json:"socks_port"`
 	KeyPath          string        `json:"key_path"`
+	AuthMethod       string        `json:"auth_method"`
+	PromptPassword   bool          `json:"prompt_password"`
 	AcceptNewHostKey bool          `json:"accept_new_hostkey"`
 	Forwards         []PortForward `json:"forwards"`
 }
@@ -83,8 +85,18 @@ func DefaultProfile() Profile {
 		User:             "root",
 		Port:             "22",
 		SocksPort:        "1080",
+		AuthMethod:       "agent",
 		AcceptNewHostKey: true,
 		Forwards:         []PortForward{},
+	}
+}
+
+func NormalizeAuthMethod(method string) string {
+	switch strings.TrimSpace(method) {
+	case "key", "agent", "password":
+		return strings.TrimSpace(method)
+	default:
+		return ""
 	}
 }
 
@@ -116,6 +128,15 @@ func NormalizeWorkspace(workspace Workspace) Workspace {
 		profileIDs[p.ID] = true
 		if strings.TrimSpace(p.Name) == "" {
 			p.Name = "(без названия)"
+		}
+		if NormalizeAuthMethod(p.AuthMethod) == "" {
+			if strings.TrimSpace(p.KeyPath) != "" {
+				p.AuthMethod = "key"
+			} else {
+				p.AuthMethod = "agent"
+			}
+		} else {
+			p.AuthMethod = NormalizeAuthMethod(p.AuthMethod)
 		}
 		if p.Forwards == nil {
 			p.Forwards = []PortForward{}
@@ -153,7 +174,15 @@ func (p Profile) Validate() error {
 		return errors.New("SOCKS5-порт должен быть числом от 1 до 65535")
 	}
 	_ = sshPort
-	if p.KeyPath != "" {
+	authMethod := NormalizeAuthMethod(p.AuthMethod)
+	if authMethod == "" {
+		if strings.TrimSpace(p.KeyPath) != "" {
+			authMethod = "key"
+		} else {
+			authMethod = "agent"
+		}
+	}
+	if authMethod == "key" && p.KeyPath != "" {
 		if info, statErr := os.Stat(p.KeyPath); statErr != nil || info.IsDir() {
 			return errors.New("указанный файл SSH-ключа не найден")
 		}
@@ -187,6 +216,14 @@ func (p Profile) SSHArgs(batch bool) ([]string, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
+	authMethod := NormalizeAuthMethod(p.AuthMethod)
+	if authMethod == "" {
+		if strings.TrimSpace(p.KeyPath) != "" {
+			authMethod = "key"
+		} else {
+			authMethod = "agent"
+		}
+	}
 	args := []string{
 		"-D", net.JoinHostPort("127.0.0.1", normalizedPort(p.SocksPort)),
 		"-N", "-p", normalizedPort(p.Port),
@@ -195,7 +232,7 @@ func (p Profile) SSHArgs(batch bool) ([]string, error) {
 		"-o", "ServerAliveInterval=30",
 		"-o", "ServerAliveCountMax=3",
 	}
-	if batch {
+	if batch && authMethod != "password" {
 		args = append(args, "-o", "BatchMode=yes")
 	}
 	for _, forward := range p.Forwards {
@@ -205,7 +242,7 @@ func (p Profile) SSHArgs(batch bool) ([]string, error) {
 		destination := net.JoinHostPort(strings.TrimSpace(forward.RemoteHost), normalizedPort(forward.RemotePort))
 		args = append(args, "-L", "127.0.0.1:"+normalizedPort(forward.LocalPort)+":"+destination)
 	}
-	if p.KeyPath != "" {
+	if authMethod == "key" && p.KeyPath != "" {
 		args = append(args, "-i", p.KeyPath)
 	}
 	if p.AcceptNewHostKey {

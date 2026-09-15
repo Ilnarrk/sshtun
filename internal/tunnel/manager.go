@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -67,10 +68,30 @@ func (m *Manager) IsActive() bool {
 	return phase == "starting" || phase == "connected" || phase == "stopping"
 }
 
-func (m *Manager) Start(profile model.Profile) error {
-	args, err := profile.SSHArgs(true)
+func (m *Manager) Start(profile model.Profile, sessionPassword string) error {
+	authMethod := model.NormalizeAuthMethod(profile.AuthMethod)
+	if authMethod == "" {
+		if strings.TrimSpace(profile.KeyPath) != "" {
+			authMethod = "key"
+		} else {
+			authMethod = "agent"
+		}
+	}
+	batch := authMethod != "password"
+	args, err := profile.SSHArgs(batch)
 	if err != nil {
 		return err
+	}
+	var askpassPath string
+	var askpassCleanup func()
+	if authMethod == "password" {
+		if strings.TrimSpace(sessionPassword) == "" {
+			return errors.New("требуется пароль")
+		}
+		askpassPath, askpassCleanup, err = prepareAskpass(sessionPassword)
+		if err != nil {
+			return fmt.Errorf("не удалось подготовить SSH_ASKPASS: %w", err)
+		}
 	}
 	sshPath, err := m.lookPath("ssh")
 	if err != nil {
@@ -106,7 +127,7 @@ func (m *Manager) Start(profile model.Profile) error {
 	m.emitEvent("tunnel:state", state)
 	m.appendLog("info", "Запуск туннеля к "+profile.User+"@"+profile.Host)
 
-	go m.run(ctx, runID, sshPath, args, profile)
+	go m.run(ctx, runID, sshPath, args, profile, askpassPath, askpassCleanup)
 	return nil
 }
 
@@ -164,9 +185,19 @@ func (m *Manager) OpenInteractive(profile model.Profile) error {
 	return nil
 }
 
-func (m *Manager) run(ctx context.Context, runID uint64, sshPath string, args []string, profile model.Profile) {
+func (m *Manager) run(ctx context.Context, runID uint64, sshPath string, args []string, profile model.Profile, askpassPath string, askpassCleanup func()) {
 	cmd := m.command(ctx, sshPath, args...)
+	if askpassPath != "" {
+		cmd.Env = append(os.Environ(),
+			"SSH_ASKPASS="+askpassPath,
+			"SSH_ASKPASS_REQUIRE=force",
+			"DISPLAY=sshtun",
+		)
+	}
 	configureCommand(cmd)
+	if askpassCleanup != nil {
+		defer askpassCleanup()
+	}
 	output, err := cmd.StdoutPipe()
 	if err != nil {
 		m.finish(runID, err)

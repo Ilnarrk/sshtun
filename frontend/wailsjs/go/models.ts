@@ -76,6 +76,8 @@ export namespace model {
 	    port: string;
 	    socks_port: string;
 	    key_path: string;
+	    auth_method: string;
+	    prompt_password: boolean;
 	    accept_new_hostkey: boolean;
 	    forwards: PortForward[];
 	
@@ -92,6 +94,8 @@ export namespace model {
 	        this.port = source["port"];
 	        this.socks_port = source["socks_port"];
 	        this.key_path = source["key_path"];
+	        this.auth_method = source["auth_method"];
+	        this.prompt_password = source["prompt_password"];
 	        this.accept_new_hostkey = source["accept_new_hostkey"];
 	        this.forwards = this.convertValues(source["forwards"], PortForward);
 	    }

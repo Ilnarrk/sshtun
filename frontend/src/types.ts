@@ -7,6 +7,8 @@ export interface PortForward {
   remote_port: string;
 }
 
+export type AuthMethod = "key" | "agent" | "password";
+
 export interface Profile {
   id: string;
   name: string;
@@ -15,13 +17,17 @@ export interface Profile {
   port: string;
   socks_port: string;
   key_path: string;
+  auth_method: AuthMethod;
+  prompt_password: boolean;
   accept_new_hostkey: boolean;
   forwards: PortForward[];
 }
 
 export interface UISettings {
-  log_height: number;
+  log_height?: number;
 }
+
+export type PanelMode = "view" | "edit" | "log";
 
 export interface Workspace {
   version: number;

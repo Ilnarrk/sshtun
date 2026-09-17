@@ -207,34 +207,42 @@ svg {
 
 .profile-row {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  align-items: start;
   margin-bottom: 2px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: stretch;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  overflow: hidden;
+}
+
+.profile-card:hover:not(:has(.profile-item:disabled)) {
+  background: var(--surface-hover);
+}
+
+.profile-card.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .profile-item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
-  padding: 8px 4px 8px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  padding: 8px 0 8px 10px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   text-align: left;
-}
-
-.profile-item:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.profile-item.active {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised));
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .profile-item-dot {
@@ -247,7 +255,7 @@ svg {
   flex: 0 0 auto;
 }
 
-.profile-item.connected .profile-item-dot {
+.profile-card.connected .profile-item-dot {
   background: var(--success);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent);
 }
@@ -283,15 +291,18 @@ svg {
 }
 
 .profile-menu-button {
+  flex: 0 0 28px;
   width: 28px;
-  height: 28px;
-  margin-top: 6px;
+  height: auto;
+  align-self: stretch;
+  margin: 0;
+  border-radius: 0;
   color: var(--muted);
 }
 
-.profile-row:hover .profile-menu-button,
-.profile-row:focus-within .profile-menu-button,
-.profile-item.active + .profile-menu-button {
+.profile-card:hover .profile-menu-button,
+.profile-card:focus-within .profile-menu-button,
+.profile-card.active .profile-menu-button {
   color: var(--text);
 }
 
@@ -308,17 +319,35 @@ svg {
 .profile-editor {
   width: min(100%, 720px);
   margin-inline: auto;
-  overflow-y: auto;
   min-height: 0;
+}
+
+.profile-view {
+  overflow-y: auto;
   padding-bottom: 8px;
 }
 
-.profile-view-header,
+.profile-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .profile-editor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-shrink: 0;
   margin-bottom: 18px;
 }
 
@@ -333,6 +362,13 @@ svg {
 .profile-editor-actions {
   display: flex;
   gap: 8px;
+}
+
+.profile-editor-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
 }
 
 .editor-tabs {
@@ -568,7 +604,7 @@ input::placeholder {
   border-radius: var(--radius-sm);
   color: var(--text);
   background: transparent;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
 .button {
@@ -606,7 +642,7 @@ input::placeholder {
 
 .button.connect:hover:not(:disabled) {
   background: var(--accent-strong);
-  transform: translateY(-1px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 38%, transparent);
 }
 
 .button.connect.stop {
@@ -629,7 +665,7 @@ input::placeholder {
 .menu-popover {
   position: absolute;
   z-index: 40;
-  top: 34px;
+  top: calc(100% + 4px);
   right: 0;
   width: 188px;
   padding: 6px;

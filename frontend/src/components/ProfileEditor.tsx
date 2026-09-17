@@ -53,6 +53,7 @@ export function ProfileEditor({
         </div>
       </div>
 
+      <div className="profile-editor-body">
       <div className="editor-tabs" role="tablist" aria-label="Разделы настроек">
         <button type="button" role="tab" aria-selected={tab === "connection"} className={tab === "connection" ? "active" : ""} onClick={() => setTab("connection")}>
           Подключение
@@ -155,6 +156,7 @@ export function ProfileEditor({
           {errors.forwards && <small className="field-error" role="alert">{errors.forwards}</small>}
         </fieldset>
       )}
+      </div>
     </form>
   );
 }

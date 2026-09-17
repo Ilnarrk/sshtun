@@ -53,35 +53,37 @@ export function ProfileSidebar({
             : "Не настроен";
           return (
             <li key={profile.id} role="option" aria-selected={active} className="profile-row">
-              <button
-                type="button"
-                className={`profile-item ${active ? "active" : ""} ${connected ? "connected" : ""}`}
-                disabled={locked && !active}
-                onClick={() => onSelect(profile.id)}
-              >
-                <span className="profile-item-dot" aria-hidden="true" />
-                <span className="profile-item-text">
-                  <span className="profile-item-title">
-                    <strong>{profile.name}</strong>
+              <div className={`profile-card ${active ? "active" : ""} ${connected ? "connected" : ""}`}>
+                <button
+                  type="button"
+                  className="profile-item"
+                  disabled={locked && !active}
+                  onClick={() => onSelect(profile.id)}
+                >
+                  <span className="profile-item-dot" aria-hidden="true" />
+                  <span className="profile-item-text">
+                    <span className="profile-item-title">
+                      <strong>{profile.name}</strong>
+                    </span>
+                    <small>{subtitle}</small>
                   </span>
-                  <small>{subtitle}</small>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="icon-button profile-menu-button"
-                disabled={locked && !active}
-                aria-label={`Действия с профилем «${profile.name}»`}
-                aria-haspopup="menu"
-                aria-expanded={menuId === profile.id}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelect(profile.id);
-                  setMenuId((current) => current === profile.id ? null : profile.id);
-                }}
-              >
-                <MoreVertical aria-hidden="true" />
-              </button>
+                </button>
+                <button
+                  type="button"
+                  className="icon-button profile-menu-button"
+                  disabled={locked && !active}
+                  aria-label={`Действия с профилем «${profile.name}»`}
+                  aria-haspopup="menu"
+                  aria-expanded={menuId === profile.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect(profile.id);
+                    setMenuId((current) => current === profile.id ? null : profile.id);
+                  }}
+                >
+                  <MoreVertical aria-hidden="true" />
+                </button>
+              </div>
               {menuId === profile.id && (
                 <div className="menu-popover" ref={menuRef} role="menu">
                   <button type="button" role="menuitem" disabled={locked} onClick={() => { setMenuId(null); onEdit(profile.id); }}>

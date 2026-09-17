@@ -4,6 +4,7 @@ package tray
 
 import (
 	"errors"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"syscall"
@@ -13,26 +14,31 @@ import (
 )
 
 const (
-	wmApp            = 0x8000
-	wmTray           = wmApp + 1
-	wmClose          = 0x0010
-	wmCommand        = 0x0111
-	wmLButtonUp      = 0x0202
-	wmLButtonDblClk  = 0x0203
-	wmRButtonUp      = 0x0205
-	nimAdd        = 0
-	nimDelete     = 2
-	nifMessage    = 0x00000001
-	nifIcon       = 0x00000002
-	nifTip        = 0x00000004
-	idiApplication = 32512
-	idcArrow      = 32512
-	tpmRightAlign = 0x0008
-	tpmBottomAlign = 0x0020
-	tpmReturnCmd  = 0x0100
-	mfString      = 0x0000
-	menuShow      = 1
-	menuQuit      = 2
+	wmApp           = 0x8000
+	wmTray          = wmApp + 1
+	wmClose         = 0x0010
+	wmCommand       = 0x0111
+	wmLButtonUp     = 0x0202
+	wmLButtonDblClk = 0x0203
+	wmRButtonUp     = 0x0205
+	nimAdd          = 0
+	nimDelete       = 2
+	nifMessage      = 0x00000001
+	nifIcon         = 0x00000002
+	nifTip          = 0x00000004
+	idcArrow        = 32512
+	tpmRightAlign   = 0x0008
+	tpmBottomAlign  = 0x0020
+	tpmReturnCmd    = 0x0100
+	mfString        = 0x0000
+	menuShow        = 1
+	menuQuit        = 2
+	imageIcon       = 1
+	lrDefaultSize   = 0x0040
+	lrLoadFromFile  = 0x0010
+
+	// Wails embeds build/windows/icon.ico with resource ID 3 (see winc.AppIconID).
+	wailsAppIconID = 3
 )
 
 var (
@@ -49,6 +55,7 @@ var (
 	procPostQuitMessage     = user32.NewProc("PostQuitMessage")
 	procDestroyWindow       = user32.NewProc("DestroyWindow")
 	procLoadIconW           = user32.NewProc("LoadIconW")
+	procLoadImageW          = user32.NewProc("LoadImageW")
 	procLoadCursorW         = user32.NewProc("LoadCursorW")
 	procCreatePopupMenu     = user32.NewProc("CreatePopupMenu")
 	procAppendMenuW         = user32.NewProc("AppendMenuW")
@@ -59,6 +66,7 @@ var (
 	procPostMessageW        = user32.NewProc("PostMessageW")
 	procShellNotifyIconW    = shell32.NewProc("Shell_NotifyIconW")
 	procGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
+	procGetModuleFileNameW  = kernel32.NewProc("GetModuleFileNameW")
 )
 
 type wndClassEx struct {
@@ -132,22 +140,87 @@ func (i *Icon) show(tooltip string) error {
 	return <-ready
 }
 
+func loadAppIcon(hInstance uintptr) (windows.Handle, error) {
+	if icon := loadIconFromResource(hInstance, wailsAppIconID); icon != 0 {
+		return icon, nil
+	}
+	if icon := loadIconFromFileNearModule(hInstance); icon != 0 {
+		return icon, nil
+	}
+	return 0, errors.New("не удалось загрузить иконку приложения")
+}
+
+func loadIconFromResource(hInstance uintptr, resourceID int) windows.Handle {
+	id := uintptr(resourceID)
+	icon, _, _ := procLoadIconW.Call(hInstance, id)
+	if icon != 0 {
+		return windows.Handle(icon)
+	}
+	icon, _, _ = procLoadImageW.Call(
+		hInstance,
+		id,
+		imageIcon,
+		0,
+		0,
+		lrDefaultSize,
+	)
+	return windows.Handle(icon)
+}
+
+func loadIconFromFileNearModule(hInstance uintptr) windows.Handle {
+	exePath, err := moduleFileName(hInstance)
+	if err != nil {
+		return 0
+	}
+	exeDir := filepath.Dir(exePath)
+	for _, name := range []string{"app_icon.ico", "icon.ico"} {
+		path := filepath.Join(exeDir, name)
+		pathUTF16, err := windows.UTF16PtrFromString(path)
+		if err != nil {
+			continue
+		}
+		icon, _, _ := procLoadImageW.Call(
+			0,
+			uintptr(unsafe.Pointer(pathUTF16)),
+			imageIcon,
+			0,
+			0,
+			lrLoadFromFile|lrDefaultSize,
+		)
+		if icon != 0 {
+			return windows.Handle(icon)
+		}
+	}
+	return 0
+}
+
+func moduleFileName(hInstance uintptr) (string, error) {
+	buf := make([]uint16, windows.MAX_PATH)
+	n, _, err := procGetModuleFileNameW.Call(hInstance, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	if n == 0 {
+		return "", err
+	}
+	return windows.UTF16ToString(buf[:n]), nil
+}
+
 func (i *Icon) run(tooltip string, ready chan error) error {
+	hInstance, _, _ := procGetModuleHandleW.Call(0)
+	appIcon, err := loadAppIcon(hInstance)
+	if err != nil {
+		ready <- err
+		return err
+	}
+
 	classOnce.Do(func() {
 		className, _ := syscall.UTF16PtrFromString("SSHTunnelManagerTray")
-		hInstance, _, _ := procGetModuleHandleW.Call(0)
-		hIcon, _, _ := procLoadIconW.Call(hInstance, uintptr(1))
-		if hIcon == 0 {
-			hIcon, _, _ = procLoadIconW.Call(0, uintptr(idiApplication))
-		}
 		hCursor, _, _ := procLoadCursorW.Call(0, uintptr(idcArrow))
 		wndClass := wndClassEx{
 			WndProc:   syscall.NewCallback(wndProc),
 			Instance:  windows.Handle(hInstance),
-			Icon:      windows.Handle(hIcon),
+			Icon:      appIcon,
 			Cursor:    windows.Handle(hCursor),
 			ClassName: className,
-			IconSm:    windows.Handle(hIcon),
+			IconSm:    appIcon,
 		}
 		wndClass.Size = uint32(unsafe.Sizeof(wndClass))
 		atom, _, _ := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wndClass)))
@@ -158,7 +231,6 @@ func (i *Icon) run(tooltip string, ready chan error) error {
 		return errors.New("не удалось зарегистрировать класс окна трея")
 	}
 
-	hInstance, _, _ := procGetModuleHandleW.Call(0)
 	hwnd, _, err := procCreateWindowExW.Call(
 		0,
 		classAtom,
@@ -176,17 +248,12 @@ func (i *Icon) run(tooltip string, ready chan error) error {
 	}
 	window := windows.HWND(hwnd)
 
-	hIcon, _, _ := procLoadIconW.Call(hInstance, uintptr(1))
-	if hIcon == 0 {
-		hIcon, _, _ = procLoadIconW.Call(0, uintptr(idiApplication))
-	}
-
 	nid := notifyIconData{
 		Wnd:             window,
 		ID:              1,
 		Flags:           nifMessage | nifIcon | nifTip,
 		CallbackMessage: wmTray,
-		Icon:            windows.Handle(hIcon),
+		Icon:            appIcon,
 	}
 	nid.Size = uint32(unsafe.Sizeof(nid))
 	copy(nid.Tip[:], syscall.StringToUTF16(tooltip))
